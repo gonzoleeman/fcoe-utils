@@ -375,6 +375,9 @@ static void rtnl_recv_newlink(struct nlmsghdr *nh)
 	struct iff *iff, *real_dev;
 	struct fcf_list_head *head;
 	bool running;
+	char mac_addr[ETHER_ADDR_LEN];
+	char ifname[IFNAMSIZ];
+
 
 	if (config.vn2vn)
 		head = &vn2vns;
@@ -430,12 +433,12 @@ static void rtnl_recv_newlink(struct nlmsghdr *nh)
 		return;
 	}
 
-	iff = malloc(sizeof(*iff));
+	iff = malloc(sizeof(struct iff));
 	if (!iff) {
 		FIP_LOG_ERRNO("malloc failed");
 		return;
 	}
-	memset(iff, 0, sizeof(*iff));
+	memset(iff, 0, sizeof(struct iff));
 	TAILQ_INIT(&iff->vlans);
 
 	parse_ifinfo(ifla, nh);
@@ -447,8 +450,16 @@ static void rtnl_recv_newlink(struct nlmsghdr *nh)
 		iff->iflink = *(int *)RTA_DATA(ifla[IFLA_LINK]);
 	else
 		iff->iflink = iff->ifindex;
-	memcpy(iff->mac_addr, RTA_DATA(ifla[IFLA_ADDRESS]), ETHER_ADDR_LEN);
-	strncpy(iff->ifname, RTA_DATA(ifla[IFLA_IFNAME]), IFNAMSIZ);
+
+	/*
+	 * copy MAC address and interface name using intermediate
+	 * arrays, so gcc-11 knows we are not overflowing buffers
+	 */
+	memcpy(mac_addr, RTA_DATA(ifla[IFLA_ADDRESS]),
+			ETHER_ADDR_LEN);
+	memcpy(iff->mac_addr, mac_addr, ETHER_ADDR_LEN);
+	memcpy(ifname, RTA_DATA(ifla[IFLA_IFNAME]), IFNAMSIZ);
+	memcpy(iff->ifname, ifname, IFNAMSIZ);
 	iff->ifname[IFNAMSIZ - 1] = '\0';
 
 	if (ifla[IFLA_LINKINFO]) {

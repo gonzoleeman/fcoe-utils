@@ -570,6 +570,8 @@ fp_ns_get_id(uint32_t op, fc_wwn_t wwn, char *response, size_t *resp_len)
 	struct sg_io_v4 sg_io;
 	size_t actual_len;
 	int cmd, rc = 0;
+	uint32_t preamble_words[3];
+
 
 	memset((char *)&cdb, 0, sizeof(cdb));
 	memset(&ct, 0, sizeof(ct));
@@ -584,8 +586,12 @@ fp_ns_get_id(uint32_t op, fc_wwn_t wwn, char *response, size_t *resp_len)
 
 	cdb.msgcode = FC_BSG_HST_CT;
 	hton24(cdb.rqst_data.h_ct.port_id, 0xfffffc);
-	memcpy(&cdb.rqst_data.h_ct.preamble_word0, &ct.hdr,
-	       3 * sizeof(uint32_t));
+
+	/* copy preamble words one at a time, to make compiler happy */
+	memcpy(&preamble_words, &ct.hdr, sizeof(preamble_words));
+	cdb.rqst_data.h_ct.preamble_word0 = preamble_words[0];
+	cdb.rqst_data.h_ct.preamble_word1 = preamble_words[1];
+	cdb.rqst_data.h_ct.preamble_word2 = preamble_words[2];
 
 	sg_io.guard = 'Q';
 	sg_io.protocol = BSG_PROTOCOL_SCSI;
